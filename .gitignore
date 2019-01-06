@@ -7,6 +7,8 @@ research/pycocotools/*
 
 *.tar.gz
 pet_faces_*
+research/object_detection/ORIGINAL_inference_graph/*
+research/object_detection/inference_graph/*
 research/object_detection/training/model*
 research/object_detection/protos/*.py
 research/object_detection/faster_*/*
