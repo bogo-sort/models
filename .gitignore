@@ -3,14 +3,15 @@
 # --------------------
 research/images/*
 research/annotations/*
+research/pycocotools/*
+
 *.tar.gz
 pet_faces_*
+research/object_detection/training/model*
 research/object_detection/protos/*.py
-research/object_detection/faster_rcnn_inception_v2_coco_2018_01_28/*
-research/object_detection/images/test/*.jpg
-research/object_detection/images/train/*.jpg
+research/object_detection/faster_*/*
+research/object_detection/images/*
 *.pb
-model.ckpt.*
 events.out.tfevents.*
 *.record
 # --------------------
