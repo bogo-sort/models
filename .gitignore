@@ -1,3 +1,22 @@
+
+# personal - ryan
+# --------------------
+research/images/*
+research/annotations/*
+*.tar.gz
+pet_faces_*
+research/object_detection/protos/*.py
+research/object_detection/faster_rcnn_inception_v2_coco_2018_01_28/*
+research/object_detection/images/test/*.jpg
+research/object_detection/images/train/*.jpg
+*.pb
+model.ckpt.*
+events.out.tfevents.*
+*.record
+# --------------------
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -23,6 +42,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
