@@ -31,7 +31,8 @@ from utils import visualization_utils as vis_util
 
 # Name of the directory containing the object detection module we're using
 MODEL_NAME = 'inference_graph'
-IMAGE_NAME = 'test_image3.jpg'
+IMAGE_NAME = 'testimage9.jpg'
+
 
 # Grab path to current working directory
 CWD_PATH = os.getcwd()
@@ -47,7 +48,7 @@ PATH_TO_LABELS = os.path.join(CWD_PATH,'training','labelmap.pbtxt')
 PATH_TO_IMAGE = os.path.join(CWD_PATH,IMAGE_NAME)
 
 # Number of classes the object detector can identify
-NUM_CLASSES = 6
+NUM_CLASSES = 2
 
 # Load the label map.
 # Label maps map indices to category names, so that when our convolution
