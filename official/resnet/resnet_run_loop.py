@@ -31,7 +31,6 @@ import os
 # pylint: disable=g-bad-import-order
 from absl import flags
 import tensorflow as tf
-from tensorflow.contrib.data.python.ops import threadpool
 
 from official.resnet import resnet_model
 from official.utils.flags import core as flags_core
@@ -75,6 +74,15 @@ def process_record_dataset(dataset,
   Returns:
     Dataset of (image, label) pairs ready for iteration.
   """
+  # Defines a specific size thread pool for tf.data operations.
+  if datasets_num_private_threads:
+    options = tf.data.Options()
+    options.experimental_threading = tf.data.experimental.ThreadingOptions()
+    options.experimental_threading.private_threadpool_size = (
+        datasets_num_private_threads)
+    dataset = dataset.with_options(options)
+    tf.compat.v1.logging.info('datasets_num_private_threads: %s',
+                              datasets_num_private_threads)
 
   # Prefetches a batch at a time to smooth out the time taken to load input
   # files for shuffling and processing.
@@ -101,16 +109,6 @@ def process_record_dataset(dataset,
   # allows DistributionStrategies to adjust how many batches to fetch based
   # on how many devices are present.
   dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-
-  # Defines a specific size thread pool for tf.data operations.
-  if datasets_num_private_threads:
-    tf.compat.v1.logging.info('datasets_num_private_threads: %s',
-                              datasets_num_private_threads)
-    dataset = threadpool.override_threadpool(
-        dataset,
-        threadpool.PrivateThreadPool(
-            datasets_num_private_threads,
-            display_name='input_pipeline_thread_pool'))
 
   return dataset
 
@@ -359,11 +357,16 @@ def resnet_model_fn(features, labels, mode, model_class,
     return 'batch_normalization' not in name
   loss_filter_fn = loss_filter_fn or exclude_batch_norm
 
-  # Add weight decay to the loss.
+  # Add weight decay to the loss. We need to scale the regularization loss
+  # manually as losses other than in tf.losses and tf.keras.losses don't scale
+  # automatically.
   l2_loss = weight_decay * tf.add_n(
       # loss is computed using fp32 for numerical stability.
-      [tf.nn.l2_loss(tf.cast(v, tf.float32))
-       for v in tf.compat.v1.trainable_variables() if loss_filter_fn(v.name)])
+      [
+          tf.nn.l2_loss(tf.cast(v, tf.float32))
+          for v in tf.trainable_variables()
+          if loss_filter_fn(v.name)
+      ]) / tf.distribute.get_strategy().num_replicas_in_sync
   tf.compat.v1.summary.scalar('l2_loss', l2_loss)
   loss = cross_entropy + l2_loss
 
@@ -473,7 +476,9 @@ def resnet_main(
       allow_soft_placement=True)
 
   distribution_strategy = distribution_utils.get_distribution_strategy(
-      flags_core.get_num_gpus(flags_obj), flags_obj.all_reduce_alg)
+      distribution_strategy=flags_obj.distribution_strategy,
+      num_gpus=flags_core.get_num_gpus(flags_obj),
+      all_reduce_alg=flags_obj.all_reduce_alg)
 
   # Creates a `RunConfig` that checkpoints every 24 hours which essentially
   # results in checkpoints determined only by `epochs_between_evals`.
@@ -594,7 +599,13 @@ def resnet_main(
           shape, batch_size=flags_obj.batch_size, dtype=export_dtype)
     classifier.export_savedmodel(flags_obj.export_dir, input_receiver_fn,
                                  strip_default_attrs=True)
-  return eval_results
+
+  stats = {}
+  stats['eval_results'] = eval_results
+  stats['train_hooks'] = train_hooks
+
+  return stats
+
 
 def define_resnet_flags(resnet_size_choices=None):
   """Add flags and validators for ResNet."""
@@ -634,10 +645,6 @@ def define_resnet_flags(resnet_size_choices=None):
           'the expense of image resize/cropping being done as part of model '
           'inference. Note, this flag only applies to ImageNet and cannot '
           'be used for CIFAR.'))
-  flags.DEFINE_boolean(
-      name='turn_off_distribution_strategy', default=False,
-      help=flags_core.help_wrap('Set to True to not use distribution '
-                                'strategies.'))
   choice_kwargs = dict(
       name='resnet_size', short_name='rs', default='50',
       help=flags_core.help_wrap('The size of the ResNet model to use.'))
