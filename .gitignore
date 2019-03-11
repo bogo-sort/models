@@ -14,6 +14,7 @@ research/object_detection/protos/*.py
 research/object_detection/faster_*/*
 research/object_detection/images/*
 research/object_detection/ssd_mobilenet_v1_coco_*
+research/object_detection/mask_rcnn*
 *.pb
 events.out.tfevents.*
 *.record
