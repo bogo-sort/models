@@ -25,6 +25,7 @@ import tensorflow as tf  # pylint: disable=g-bad-import-order
 from official.resnet import imagenet_main
 from official.resnet.keras import keras_common
 from official.resnet.keras import resnet_model
+from official.resnet.keras import trivial_model
 from official.utils.flags import core as flags_core
 from official.utils.logs import logger
 from official.utils.misc import distribution_utils
@@ -118,6 +119,13 @@ def run(flags_obj):
                    if tf.test.is_built_with_cuda() else 'channels_last')
   tf.keras.backend.set_image_data_format(data_format)
 
+  strategy = distribution_utils.get_distribution_strategy(
+      distribution_strategy=flags_obj.distribution_strategy,
+      num_gpus=flags_obj.num_gpus,
+      num_workers=distribution_utils.configure_cluster())
+
+  strategy_scope = keras_common.get_strategy_scope(strategy)
+
   # pylint: disable=protected-access
   if flags_obj.use_synthetic_data:
     distribution_utils.set_up_synthetic_data()
@@ -150,13 +158,6 @@ def run(flags_obj):
         parse_record_fn=parse_record_keras,
         dtype=dtype)
 
-  strategy = distribution_utils.get_distribution_strategy(
-      distribution_strategy=flags_obj.distribution_strategy,
-      num_gpus=flags_obj.num_gpus,
-      num_workers=distribution_utils.configure_cluster())
-
-  strategy_scope = keras_common.get_strategy_scope(strategy)
-
   with strategy_scope:
     optimizer = keras_common.get_optimizer()
     if dtype == 'float16':
@@ -164,8 +165,12 @@ def run(flags_obj):
       # can be enabled with a single line of code.
       optimizer = tf.keras.mixed_precision.experimental.LossScaleOptimizer(
           optimizer, loss_scale=flags_core.get_loss_scale(flags_obj))
-    model = resnet_model.resnet50(num_classes=imagenet_main.NUM_CLASSES,
-                                  dtype=dtype)
+
+    if flags_obj.use_trivial_model:
+      model = trivial_model.trivial_model(imagenet_main.NUM_CLASSES)
+    else:
+      model = resnet_model.resnet50(num_classes=imagenet_main.NUM_CLASSES,
+                                    dtype=dtype)
 
     model.compile(loss='sparse_categorical_crossentropy',
                   optimizer=optimizer,
