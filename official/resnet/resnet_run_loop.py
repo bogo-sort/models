@@ -550,14 +550,10 @@ def resnet_main(
 
   # Creates a `RunConfig` that checkpoints every 24 hours which essentially
   # results in checkpoints determined only by `epochs_between_evals`.
-  # TODO(ayushd,yuefengz): re-enable checkpointing for multi-worker strategy.
-  save_checkpoints_secs = (None if distribution_strategy.__class__.__name__ in
-                           ['CollectiveAllReduceStrategy',
-                            'MultiWorkerMirroredStrategy'] else 60*60*24)
   run_config = tf.estimator.RunConfig(
       train_distribute=distribution_strategy,
       session_config=session_config,
-      save_checkpoints_secs=save_checkpoints_secs,
+      save_checkpoints_secs=60*60*24,
       save_checkpoints_steps=None)
 
   # Initializes model with all but the dense layer from pretrained ResNet.
@@ -577,7 +573,8 @@ def resnet_main(
           'resnet_version': int(flags_obj.resnet_version),
           'loss_scale': flags_core.get_loss_scale(flags_obj),
           'dtype': flags_core.get_tf_dtype(flags_obj),
-          'fine_tune': flags_obj.fine_tune
+          'fine_tune': flags_obj.fine_tune,
+          'num_workers': num_workers,
       })
 
   run_params = {
@@ -587,6 +584,7 @@ def resnet_main(
       'resnet_version': flags_obj.resnet_version,
       'synthetic_data': flags_obj.use_synthetic_data,
       'train_epochs': flags_obj.train_epochs,
+      'num_workers': num_workers,
   }
   if flags_obj.use_synthetic_data:
     dataset_name = dataset_name + '-synthetic'
