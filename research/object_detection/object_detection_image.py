@@ -31,7 +31,7 @@ from utils import visualization_utils as vis_util
 
 # Name of the directory containing the object detection module we're using
 MODEL_NAME = 'inference_graph'
-IMAGE_NAME = 'testimage9.jpg'
+IMAGE_NAME = 'testimage11.jpg'
 
 # Grab path to current working directory
 CWD_PATH = os.getcwd()
@@ -106,8 +106,8 @@ vis_util.visualize_boxes_and_labels_on_image_array(
     np.squeeze(scores),
     category_index,
     use_normalized_coordinates=True,
-    line_thickness=8,
-    min_score_thresh=0.80)
+    line_thickness=2,
+    min_score_thresh=0.60)
 
 # All the results have been drawn on image. Now display the image.
 cv2.imshow('Object detector', image)
