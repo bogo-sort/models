@@ -107,6 +107,8 @@ def run(flags_obj):
   # Execute flag override logic for better model performance
   if flags_obj.tf_gpu_thread_mode:
     keras_common.set_gpu_thread_mode_and_count(flags_obj)
+  if flags_obj.data_prefetch_with_slack:
+    keras_common.data_prefetch_with_slack()
 
   dtype = flags_core.get_tf_dtype(flags_obj)
   if dtype == 'float16':
@@ -122,7 +124,8 @@ def run(flags_obj):
   strategy = distribution_utils.get_distribution_strategy(
       distribution_strategy=flags_obj.distribution_strategy,
       num_gpus=flags_obj.num_gpus,
-      num_workers=distribution_utils.configure_cluster())
+      num_workers=distribution_utils.configure_cluster(),
+      all_reduce_alg='nccl')
 
   strategy_scope = distribution_utils.get_strategy_scope(strategy)
 
