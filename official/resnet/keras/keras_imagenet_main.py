@@ -125,7 +125,9 @@ def run(flags_obj):
   strategy = distribution_utils.get_distribution_strategy(
       distribution_strategy=flags_obj.distribution_strategy,
       num_gpus=flags_obj.num_gpus,
-      num_workers=distribution_utils.configure_cluster())
+      num_workers=distribution_utils.configure_cluster(),
+      all_reduce_alg=flags_obj.all_reduce_alg,
+      num_packs=flags_obj.num_packs)
 
   strategy_scope = distribution_utils.get_strategy_scope(strategy)
 
@@ -168,8 +170,18 @@ def run(flags_obj):
         dtype=dtype,
         drop_remainder=drop_remainder)
 
+  lr_schedule = 0.1
+  if flags_obj.use_tensor_lr:
+    lr_schedule = keras_common.PiecewiseConstantDecayWithWarmup(
+        batch_size=flags_obj.batch_size,
+        epoch_size=imagenet_main.NUM_IMAGES['train'],
+        warmup_epochs=LR_SCHEDULE[0][1],
+        boundaries=list(p[1] for p in LR_SCHEDULE[1:]),
+        multipliers=list(p[0] for p in LR_SCHEDULE),
+        compute_lr_on_cpu=True)
+
   with strategy_scope:
-    optimizer = keras_common.get_optimizer()
+    optimizer = keras_common.get_optimizer(lr_schedule)
     if dtype == 'float16':
       # TODO(reedwm): Remove manually wrapping optimizer once mixed precision
       # can be enabled with a single line of code.
