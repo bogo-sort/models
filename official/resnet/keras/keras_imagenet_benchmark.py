@@ -117,6 +117,57 @@ class Resnet50KerasAccuracy(keras_benchmark.KerasBenchmark):
     FLAGS.use_tensor_lr = True
     self._run_and_report_benchmark()
 
+  def benchmark_8_gpu_mlperf_like_tweaked(self):
+    """Test similar to the rules for MLPerf 0.5.
+
+    Listed below are reasons this comparison is not to the MLSpec, but this is
+    still a decent directional measurement:
+      - Eval is every 4 epochs and again at the end. ~2 extra times.
+      - Learning rate is not tuned to hit 75%, but we know the model is correct.
+      - We measure total time and MLPerf 0.5 excluded some startup time.
+      - Eval is not on the total set, need to set eval batch_size where
+        8*batch_size/50K is even. 250 is a good number.
+      - Not sure if we are doing any extra or too few steps due to epoch bleed.
+    """
+    self._setup()
+    FLAGS.num_gpus = 8
+    FLAGS.data_dir = self.data_dir
+    FLAGS.batch_size = 256 * 8
+    FLAGS.train_epochs = 61
+    FLAGS.epochs_between_evals = 4
+    FLAGS.model_dir = self._get_model_dir('benchmark_8_gpu_mlperf_like_tweaked')
+    FLAGS.dtype = 'fp16'
+    FLAGS.enable_eager = True
+    FLAGS.enable_xla = True
+    # Tweaks to improve performance.
+    FLAGS.data_delay_prefetch = True
+    FLAGS.use_tensor_lr = True
+    self._run_and_report_benchmark()
+
+  def benchmark_8_gpu_mlperf_like(self):
+    """Test similar to the rules for MLPerf 0.5.
+
+    Listed below are reasons this comparison is not to the MLSpec, but this is
+    still a decent directional measurement:
+      - Eval is every 4 epochs and again at the end. ~2 extra times.
+      - Learning rate is not tuned to hit 75%, but we know the model is correct.
+      - We measure total time and MLPerf 0.5 excluded some startup time.
+      - Eval is not on the total set, need to set eval batch_size where
+        8*batch_size/50K is even. 250 is a good number.
+      - Not sure if we are doing any extra or too few steps due to epoch bleed.
+    """
+    self._setup()
+    FLAGS.num_gpus = 8
+    FLAGS.data_dir = self.data_dir
+    FLAGS.batch_size = 256 * 8
+    FLAGS.train_epochs = 61
+    FLAGS.epochs_between_evals = 4
+    FLAGS.model_dir = self._get_model_dir('benchmark_8_gpu_mlperf_like')
+    FLAGS.dtype = 'fp16'
+    FLAGS.enable_eager = True
+    FLAGS.enable_xla = True
+    self._run_and_report_benchmark()
+
   def benchmark_xla_8_gpu_fp16_dynamic(self):
     """Test Keras model with XLA, eager, dist_strat, 8 GPUs, dynamic fp16."""
     self._setup()
@@ -541,9 +592,7 @@ class Resnet50KerasBenchmarkBase(keras_benchmark.KerasBenchmark):
     self._run_and_report_benchmark()
 
   def benchmark_8_gpu_fp16_dynamic_tweaked(self):
-    """Test Keras model with 8 GPUs, fp16, dynamic loss scaling, and manual
-       config tuning.
-    """
+    """Test Keras model with 8 GPUs, fp16, dynamic loss scaling, and tuned."""
     self._setup()
 
     FLAGS.num_gpus = 8
@@ -557,6 +606,24 @@ class Resnet50KerasBenchmarkBase(keras_benchmark.KerasBenchmark):
     FLAGS.use_tensor_lr = True
     FLAGS.tf_gpu_thread_mode = 'gpu_private'
     FLAGS.data_delay_prefetch = True
+    self._run_and_report_benchmark()
+
+  def benchmark_xla_8_gpu_fp16_optional_next(self):
+    """Test Keras model with XLA, 8 GPUs and fp16.
+
+    This test also enables get_next_as_optional.
+    """
+    self._setup()
+
+    FLAGS.num_gpus = 8
+    FLAGS.dtype = 'fp16'
+    FLAGS.enable_eager = True
+    FLAGS.enable_xla = True
+    FLAGS.distribution_strategy = 'default'
+    FLAGS.model_dir = self._get_model_dir(
+        'benchmark_xla_8_gpu_fp16_optional_next')
+    FLAGS.batch_size = 256 * 8  # 8 GPUs
+    FLAGS.enable_get_next_as_optional = True
     self._run_and_report_benchmark()
 
   def benchmark_xla_8_gpu_fp16(self):
@@ -618,6 +685,28 @@ class Resnet50KerasBenchmarkBase(keras_benchmark.KerasBenchmark):
     FLAGS.use_tensor_lr = True
     # FLAGS.tf_gpu_thread_mode = 'gpu_private'
     FLAGS.data_delay_prefetch = True
+    self._run_and_report_benchmark()
+
+  def benchmark_xla_8_gpu_fp16_cloning_tweaked_optional_next(self):
+    """Test with manual config tuning, XLA, 8 GPUs, fp16, and cloning.
+
+    This test also enables get_next_as_optional.
+    """
+    self._setup()
+
+    FLAGS.num_gpus = 8
+    FLAGS.dtype = 'fp16'
+    FLAGS.enable_eager = True
+    FLAGS.enable_xla = True
+    FLAGS.distribution_strategy = 'default'
+    FLAGS.clone_model_in_keras_dist_strat = True
+    FLAGS.model_dir = self._get_model_dir(
+        'benchmark_xla_8_gpu_fp16_cloning_tweaked_optional_next')
+    FLAGS.batch_size = 256 * 8
+    FLAGS.use_tensor_lr = True
+    # FLAGS.tf_gpu_thread_mode = 'gpu_private'
+    FLAGS.data_delay_prefetch = True
+    FLAGS.enable_get_next_as_optional = True
     self._run_and_report_benchmark()
 
   def benchmark_xla_8_gpu_fp16_tweaked_delay_measure(self):
@@ -958,7 +1047,6 @@ class TrivialKerasBenchmarkReal(keras_benchmark.KerasBenchmark):
     def_flags['skip_eval'] = True
     def_flags['report_accuracy_metrics'] = False
     def_flags['dtype'] = 'fp16'
-    def_flags['enable_xla'] = True
     def_flags['data_dir'] = os.path.join(root_data_dir, 'imagenet')
     def_flags['train_steps'] = 600
     def_flags['log_steps'] = 100
@@ -997,6 +1085,7 @@ class TrivialKerasBenchmarkReal(keras_benchmark.KerasBenchmark):
 
     FLAGS.num_gpus = 1
     FLAGS.enable_eager = True
+    FLAGS.enable_xla = True
     FLAGS.model_dir = self._get_model_dir('benchmark_1_gpu')
     FLAGS.batch_size = 256
     self._run_and_report_benchmark()
@@ -1007,6 +1096,7 @@ class TrivialKerasBenchmarkReal(keras_benchmark.KerasBenchmark):
 
     FLAGS.num_gpus = 1
     FLAGS.enable_eager = False
+    FLAGS.enable_xla = True
     FLAGS.model_dir = self._get_model_dir('benchmark_graph_1_gpu')
     FLAGS.batch_size = 256
     self._run_and_report_benchmark()
@@ -1017,6 +1107,7 @@ class TrivialKerasBenchmarkReal(keras_benchmark.KerasBenchmark):
 
     FLAGS.num_gpus = 8
     FLAGS.enable_eager = True
+    FLAGS.enable_xla = True
     FLAGS.model_dir = self._get_model_dir('benchmark_8_gpu')
     FLAGS.batch_size = 256 * 8
     self._run_and_report_benchmark()
@@ -1029,6 +1120,7 @@ class TrivialKerasBenchmarkReal(keras_benchmark.KerasBenchmark):
 
     FLAGS.num_gpus = 8
     FLAGS.enable_eager = True
+    FLAGS.enable_xla = True
     FLAGS.model_dir = self._get_model_dir('benchmark_8_gpu_tweaked')
     FLAGS.batch_size = 256 * 8
     FLAGS.tf_gpu_thread_mode = 'gpu_private'
@@ -1043,6 +1135,7 @@ class TrivialKerasBenchmarkReal(keras_benchmark.KerasBenchmark):
 
     FLAGS.num_gpus = 8
     FLAGS.enable_eager = True
+    FLAGS.enable_xla = True
     FLAGS.model_dir = self._get_model_dir('benchmark_8_gpu_slack')
     FLAGS.batch_size = 256 * 8
     FLAGS.tf_data_experimental_slack = True
@@ -1056,6 +1149,7 @@ class TrivialKerasBenchmarkReal(keras_benchmark.KerasBenchmark):
 
     FLAGS.num_gpus = 8
     FLAGS.enable_eager = False
+    FLAGS.enable_xla = True
     FLAGS.model_dir = self._get_model_dir('benchmark_graph_8_gpu')
     FLAGS.batch_size = 256 * 8
     self._run_and_report_benchmark()
@@ -1068,6 +1162,7 @@ class TrivialKerasBenchmarkReal(keras_benchmark.KerasBenchmark):
 
     FLAGS.num_gpus = 8
     FLAGS.enable_eager = False
+    FLAGS.enable_xla = True
     FLAGS.model_dir = self._get_model_dir('benchmark_graph_8_gpu_tweaked')
     FLAGS.batch_size = 256 * 8
     FLAGS.tf_gpu_thread_mode = 'gpu_private'
