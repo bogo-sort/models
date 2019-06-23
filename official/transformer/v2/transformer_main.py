@@ -119,6 +119,16 @@ class TransformerTask(object):
     params["batch_size"] = flags_obj.batch_size or params["default_batch_size"]
     params["repeat_dataset"] = None
     params["dtype"] = flags_core.get_tf_dtype(flags_obj)
+    params["enable_metrics_in_training"] = flags_obj.enable_metrics_in_training
+
+    if params["dtype"] == tf.float16:
+      # TODO(reedwm): It's pretty ugly to set the global policy in a constructor
+      # like this. What if multiple instances of TransformerTask are created?
+      # We should have a better way in the tf.keras.mixed_precision API of doing
+      # this.
+      policy = tf.keras.mixed_precision.experimental.Policy(
+          'infer_float32_vars')
+      tf.keras.mixed_precision.experimental.set_policy(policy)
 
   def train(self):
     """Trains the model."""
@@ -263,11 +273,6 @@ def _ensure_dir(log_dir):
 def main(_):
   flags_obj = flags.FLAGS
   with logger.benchmark_context(flags_obj):
-    if flags_core.get_tf_dtype(flags_obj) == 'float16':
-      policy = tf.keras.mixed_precision.experimental.Policy(
-          'infer_float32_vars')
-      tf.keras.mixed_precision.experimental.set_policy(policy)
-
     task = TransformerTask(flags_obj)
     if flags_obj.mode == "train":
       task.train()
